@@ -1,0 +1,141 @@
+#include <Wire.h>
+#include <Arduino.h>
+#include <U8g2lib.h>
+
+#ifdef U8X8_HAVE_HW_SPI
+#include <SPI.h>
+#endif
+#ifdef U8X8_HAVE_HW_I2C
+#include <Wire.h>
+#endif
+//Input
+  //Sun
+int sensorLicht1 = A0;
+int sensorLicht2 = A1;
+int sensorLicht3 = A2;
+int sensorLicht4 = A3;
+
+  //Akku
+int sensorVolatge = A4;
+
+
+  //Display
+int buttonDisplay = 8;
+
+//Output
+  //Sun
+
+  //Akku
+int relaisAkku = 10;
+
+  //Dispaly
+int displayVoltage = 7;
+
+//Variabeln
+  //Sun
+float ValueLicht1 = 0;
+float ValueLicht2 = 0;
+float ValueLicht3 = 0;
+float ValueLicht4 = 0;
+int Valuedurchschnitt = 0;
+
+  //Akku
+float ValueVoltage = 0;
+float ValueAkku = 0;
+float vout = 0.0, vin = 0.0;
+float R1 = 100000.0; // resistance R1 (= 100 KOhm)
+float R2 =  10000.0; // resistance R2 (= 10 KOhm)
+#define REF_VOLTAGE 5
+#define PIN_STEPS 1024.0
+float Akkumin = 8.4;
+float Akkumax = 11.1;
+float Akku = 0;
+int Akkupercent = 0;
+  //Display
+int Dis_Taster = 0;
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+
+
+
+
+
+
+void setup() {
+    Wire.begin();
+Serial.begin(9600);
+
+pinMode(displayVoltage, OUTPUT);
+pinMode(relaisAkku, OUTPUT);
+
+pinMode(buttonDisplay, INPUT);
+pinMode(sensorLicht1, INPUT); 
+pinMode(sensorLicht2, INPUT); 
+pinMode(sensorLicht3, INPUT); 
+pinMode(sensorLicht4, INPUT);
+ 
+pinMode(sensorVolatge, INPUT);
+
+digitalWrite(displayVoltage, HIGH);
+
+  u8g2.begin();
+}
+
+void loop() {
+//input Read
+   Dis_Taster   = digitalRead(buttonDisplay);
+   ValueLicht1  = analogRead(sensorLicht1);
+   ValueLicht2  = analogRead(sensorLicht2);
+   ValueLicht3  = analogRead(sensorLicht3);
+   ValueLicht4  = analogRead(sensorLicht4);
+   ValueVoltage = analogRead(sensorVolatge);
+
+//Sun
+   Valuedurchschnitt = (ValueLicht1 + ValueLicht2 + ValueLicht3 + ValueLicht4)/4 ;
+
+//Akku
+    vout = (ValueVoltage * REF_VOLTAGE) / PIN_STEPS;
+    ValueAkku = vout / (R2 / (R1 + R2));
+    
+    Akku = ValueAkku-Akkumin;
+    Akkupercent = map(Akku, Akkumin, Akkumax, 0, 100);
+
+    // suppress noise
+    if (vin < 0.09) {
+        vin = 0.0;
+    }
+//Akku Protection
+    if (ValueAkku < Akkumin){
+      digitalWrite(relaisAkku,HIGH);
+      Serial.println("Laden Off");
+    }
+
+   Serial.println(String(ValueAkku) + "=" + String(Akkumin));
+
+//Display
+  if (Dis_Taster == 0){
+    u8g2.clear();
+
+} 
+if (Dis_Taster == 1){
+Serial.println("Gedrücket");
+    u8g2.setFont(u8g2_font_ncenB10_tr);
+  u8g2.firstPage();
+  do {
+    u8g2.setCursor(0, 15);
+    u8g2.print("Battery:");
+    u8g2.setCursor(60, 15);
+    u8g2.print(Akku);
+    u8g2.setCursor(90, 15);
+    u8g2.print("%");        
+    u8g2.setCursor(0, 55);
+    u8g2.print("Sun:");
+    u8g2.setCursor(50, 55);
+    u8g2.print(Valuedurchschnitt);
+    u8g2.setCursor(90, 55);
+    u8g2.print("%");        
+  } while ( u8g2.nextPage() );
+
+
+} 
+
+}
